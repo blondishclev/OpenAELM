@@ -48,7 +48,12 @@ class ResumeRewriter:
             lines.append(contact)
 
         if self.resume.summary:
-            lines.extend(["", "PROFESSIONAL SUMMARY", self.resume.summary])
+            summary = self.resume.summary
+            for h in ("professional summary", "summary", "objective"):
+                if summary.lower().startswith(h):
+                    summary = summary[len(h):].lstrip(" :").strip()
+            if summary:
+                lines.extend(["", "PROFESSIONAL SUMMARY", summary])
 
         if self.resume.skills:
             skills = sorted(set(self.resume.skills))
@@ -64,6 +69,24 @@ class ResumeRewriter:
                 "CERTIFICATIONS",
                 *self.resume.certifications
             ])
+
+        if self.resume.experience:
+            lines.extend(["", "EXPERIENCE"])
+            for e in self.resume.experience:
+                head = " — ".join(filter(None, [e.title, e.company]))
+                dates = "–".join(filter(None, [e.start_date, e.end_date]))
+                if dates:
+                    head = f"{head} ({dates})" if head else dates
+                if head:
+                    lines.append(head)
+                lines.extend(f"• {b}" for b in e.bullets)
+
+        if self.resume.education:
+            lines.extend(["", "EDUCATION"])
+            for ed in self.resume.education:
+                entry = " — ".join(filter(None, [ed.school, ed.degree]))
+                if entry:
+                    lines.append(entry)
 
         if self.resume.projects:
             lines.extend(["", "PROJECTS"])

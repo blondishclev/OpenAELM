@@ -23,12 +23,11 @@ class JobDescription:
     compliance: List[str] = field(default_factory=list)
     risk_flags: List[str] = field(default_factory=list)
     fraud_flags: List[str] = field(default_factory=list)
+    raw_text: str = ""
 
 
-SKILLS = [
-    "python", "sql", "excel", "aws", "azure", "linux", "javascript", "java",
-    "customer service", "communication", "leadership", "project management",
-]
+from .skills_db import COMMON_SKILLS as SKILLS
+from .skills_db import display as _display
 
 BENEFITS = [
     "401(k)", "health insurance", "dental", "vision", "pto", "paid time off",
@@ -97,7 +96,15 @@ class JobParser:
             ("bachelor", "master", "associate", "high school", "ged")
             if e in low
         ]
-        j.required_skills = [s.title() for s in SKILLS if s in low]
+        j.raw_text = self.text
+        hits = [s for s in SKILLS
+                if re.search(rf"\b{re.escape(s)}\b", low)]
+        soft = ("plus", "preferred", "bonus", "nice to have")
+        sentences = re.split(r"[.\n]", low)
+        pref = {s for s in hits for sent in sentences
+                if s in sent and any(w in sent for w in soft)}
+        j.required_skills = [_display(s) for s in hits if s not in pref]
+        j.preferred_skills = [_display(s) for s in pref]
         j.benefits = [b for b in BENEFITS if b.lower() in low]
         j.compliance = [v for k, v in COMPLIANCE.items() if k in low]
         j.risk_flags = [v for k, v in RISKS.items() if k in low]

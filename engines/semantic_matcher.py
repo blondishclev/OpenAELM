@@ -37,16 +37,31 @@ class SemanticMatcher:
     def compare(self)->MatchResult:
         result=MatchResult()
 
-        r=set(map(str.title,self.resume.skills))
-        j=set(map(str.title,self.job.required_skills))
+        keep=lambda s: s if s.isupper() or any(c.isupper() for c in s[1:]) else s.title()
+        r=set(keep(s) for s in self.resume.skills)
+        j=set(keep(s) for s in self.job.required_skills)
+        job_text=getattr(self.job,"raw_text","").lower()
+        resume_text=getattr(self.resume,"raw_text","").lower()
+
+        matched=set(r & j)
+        # A resume skill also counts if the job text mentions it,
+        # and a job skill counts if the resume text mentions it —
+        # this lets section-extracted skills match beyond the fixed list.
+        for skill in r:
+            if len(skill)>2 and skill.lower() in job_text:
+                matched.add(skill)
+        for skill in j:
+            if len(skill)>2 and skill.lower() in resume_text:
+                matched.add(skill)
 
         result.resume_skills=sorted(r)
         result.required_skills=sorted(j)
-        result.matched_skills=sorted(r & j)
-        result.missing_skills=sorted(j - r)
+        result.matched_skills=sorted(matched)
+        result.missing_skills=sorted(j - matched)
 
         total=max(len(j),1)
-        result.keyword_overlap=round(len(result.matched_skills)/total*100,1)
+        covered=len([s for s in matched if s in j])
+        result.keyword_overlap=round(covered/total*100,1)
 
         transfer=[]
         for skill in r:
@@ -55,7 +70,7 @@ class SemanticMatcher:
 
         score=result.keyword_overlap
 
-        if len(result.missing_skills)==0:
+        if len(result.missing_skills)==0 and j:
             score+=10
             result.notes.append("All required keywords detected.")
         else:
